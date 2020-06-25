@@ -1,5 +1,5 @@
 # 3dTicTacToe
 
-#Three js 3d tic tac toe
+# Three js 3d tic tac toe
 
-#Work in progress
+# Work in progress

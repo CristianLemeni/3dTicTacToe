@@ -28,6 +28,14 @@ var init = function () {
         transparent: true
     });
     var surfaceMat = new THREE.MeshPhongMaterial({ color: 0x808080 });
+    
+    var cubeMat = new THREE.MeshBasicMaterial( {
+        color: 0xffffff,
+        transparent:true,
+        opacity: 0.1,
+        side: THREE.DoubleSide
+        //wireframe: true
+    } );
 
     var ticTac = new Game(camera, scene, render);
     //initial screen
@@ -44,25 +52,17 @@ var init = function () {
         cubes1,
         cubes2,
     ];
+    var partialWins = [];
+    var indx = 0;
 
     var threeDMatrix = [];
 
     ticTac.initClicker();
     ticTac.addLight();
 
-    ticTac.addCubes(0, 0, 0, cubes0);
-    ticTac.moveCubesIntoPosition(cubes0, threeDMatrix);
-
-    ticTac.addCubes(0, 0, -1, cubes1);
-    ticTac.moveCubesIntoPosition(cubes1, threeDMatrix);
-
-    ticTac.addCubes(0, 0, -2, cubes2);
-    ticTac.moveCubesIntoPosition(cubes2, threeDMatrix);
-
-
-
-    ticTac.createSurface(new THREE.PlaneBufferGeometry(10, 10), surfaceMat);
-
+   
+    ticTac.createSurface(new THREE.PlaneBufferGeometry(30, 30), surfaceMat);
+    
 
     //add events
     document.addEventListener('mousedown', function (evt) {
@@ -76,17 +76,32 @@ var init = function () {
            for(var i = 0; i < intersects.length; i++){
                if(intersects[i].object.parent.isSVG){
                 tweenFadeOut(intersects[i].object.parent, ticTac);
+                addCube(ticTac, cubes0, cubes1, cubes2, threeDMatrix, cubeMat);
                }
-               else if(!intersects[i].object.parent.isSVG && intersects[i].object != ticTac.meshes.surface && intersects[i].object.isFilled == false){
+               else if(!intersects[i].object.parent.isSVG &&
+                        intersects[i].object != ticTac.meshes.surface &&
+                        intersects[i].object.isFilled == false &&
+                        intersects[i].object.visible == true){
                 var idx = ticTac.checkPlayer();
                 intersects[i].object.isFilled = true;
+                intersects[i].object.hasGameVal = idx;
+                console.log(intersects[i].object.hasGameVal);
                 ticTac.markSpot(idx,intersects[i].object.position.x,
                                     intersects[i].object.position.y,
                                     intersects[i].object.position.z,
                                     intersects[i].object);
                 ticTac.isPlayer1 = !ticTac.isPlayer1;
+                ticTac.finish = true;
+                ticTac.checkWin(intersects[i].object);
                 return;
                }
+                if(ticTac.checkWin()){
+                 ticTac.removeGameBoard();
+                 buttnMat.opacity = 1;
+                 var endButton = generateRoundedRect(buttnMat, ticTac.scene, {x: -1.5, y: -0.25, z: 0});
+                 endButton.isSVG = true;
+                 ticTac.addText(textMat, 'You win', {x: -1, y: 0, z: 0}, "endText");
+                }
                
            }            
        }
@@ -205,24 +220,84 @@ var removeObject = function(obj, scene, renderer){
     if(obj.isSVG){
         obj.children[0].geometry.dispose();
         obj.children[0].material.dispose();
-    }else{
+        scene.remove( obj );
+    }
+    else{
         obj.geometry.dispose();
         obj.material.dispose();
+        scene.remove( obj );
     }
-    scene.remove( obj );
-    //renderer.renderLists.dispose();
+    
 }
+
+var addCube = function(game, arr0, arr1, arr2, bigMatrix, cubMAt){
+    game.addCubes(0, 0, 0, arr0, cubMAt);
+    game.moveCubesIntoPosition(arr0, bigMatrix);
+
+    game.addCubes(0, 0, -1, arr1, cubMAt);
+    game.moveCubesIntoPosition(arr1, bigMatrix);
+
+    game.addCubes(0, 0, -2, arr2, cubMAt);
+    game.moveCubesIntoPosition(arr2, bigMatrix);
+
+    console.log(bigMatrix);
+}
+
+var checkABSVal = function(obj1, obj2){
+    return Math.abs(obj1 - obj2);
+}
+
+var checkAxis = function(obj1, obj2){
+    if(obj1 == obj2){
+        return true;
+    }
+    else{
+        return false;
+    }
+}
+
+
+var shootRay = function(raycaster, origin, destination, scene, rayType){
+    var xObj = [];
+    var zeroObj = [];
+    raycaster.set(origin,destination.normalize());
+    console.log(origin,destination.normalize(), rayType);
+    var intersects = raycaster.intersectObjects(scene.children, true);
+    if(intersects.length > 0){
+        for(var i = 0; i < intersects.length; i++){
+            if(intersects[i].object.hasGameVal === 0){
+                xObj.push(intersects[i].object);
+            }
+            if(intersects[i].object.hasGameVal === 1){
+                zeroObj.push(intersects[i].object);
+            }
+        }
+    }
+    var x = Array.from(new Set(xObj));
+    var zero = Array.from(new Set(zeroObj));
+
+    if(x.length >= 3){
+        console.log("X wins!", rayType);
+    }
+    if(zero.length >= 3){
+        console.log("0 wins!", rayType);
+    }
+}
+
 
 var Game = function(camera, scene, render){
     this.camera = camera;
     this.scene = scene;
     this.render = render;
-    this.meshes = {};
-    this.isPlayer1 = true;
-    this.filledCubes = {
-        xs: [],
-        zeros: []
+    this.meshes = {
+        "cubeArray": [],
+        "filledCubes": {
+            "xs": [],
+            "zeros": []
+        }
     };
+    this.isPlayer1 = true;
+    this.finish = false;
 }
 
 Game.prototype.addText = function(material, text, coords, txtKey){
@@ -282,6 +357,7 @@ Game.prototype.addLight = function(){
     var self = this;
     var ambient = new THREE.AmbientLight( 0xffffff, 0.1 );
     self.scene.add( ambient );
+    self.meshes["ambient"] = ambient;
 
     var spotLight = new THREE.SpotLight( 0xffffff, 1 );
 
@@ -299,21 +375,15 @@ Game.prototype.addLight = function(){
     spotLight.distance = 200;  
     
     self.scene.add( spotLight );
-
-    lightHelper = new THREE.SpotLightHelper( spotLight );
-    self.scene.add( lightHelper );
-    
+    self.meshes["spotlight"] = spotLight;
+   
 
 }
 
-Game.prototype.addCubes = function(x, y, z,cubeArr){
+Game.prototype.addCubes = function(x, y, z,cubeArr, cubeMat){
     var self = this;
     for(var i = 0; i < 9; i++){
         var cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-        var cubeMat = new THREE.MeshBasicMaterial( {
-                color: 0xffffff,
-                wireframe: true
-            } );
         var cube = new THREE.Mesh( cubeGeometry, cubeMat );
         cube.position.x = x;
         cube.position.y = y;
@@ -325,7 +395,8 @@ Game.prototype.addCubes = function(x, y, z,cubeArr){
    }
 }
 
-Game.prototype.moveCubesIntoPosition = function(cubeArr, threeDMatrix){
+Game.prototype.moveCubesIntoPosition = function(cubeArr, threeDMatrix, cubeArrKey){
+    var self = this;
     var xdif = 0;
     threeDMatrix.push({x: cubeArr[0].position.x, y: cubeArr[0].position.y, z: cubeArr[0].position.z, value: null})//mising one
     for(var i = 1; i < 3; i++){
@@ -345,6 +416,7 @@ Game.prototype.moveCubesIntoPosition = function(cubeArr, threeDMatrix){
         threeDMatrix.push({x: cubeArr[i].position.x, y: cubeArr[i].position.y, z: cubeArr[i].position.z, value: null})
         xdif++;
     }
+    self.meshes.cubeArray.push(cubeArr);
 }
 
 Game.prototype.markSpot = function(stringIndx, x, y, z, lastSelectedCube){
@@ -367,14 +439,14 @@ Game.prototype.markSpot = function(stringIndx, x, y, z, lastSelectedCube){
         textMesh.position.x = x;
         textMesh.position.y = y;
         textMesh.position.z = z;
-        self.meshes[textMesh+textMesh.id] = textMesh;
+        textMesh.castShadow = true;
         self.scene.add( textMesh );
 
         if(string[stringIndx] == "x"){
-            self.filledCubes.xs.push(lastSelectedCube);
+            self.meshes.filledCubes.xs.push(lastSelectedCube);
         }
         else{
-            self.filledCubes.zeros.push(lastSelectedCube);
+            self.meshes.filledCubes.zeros.push(lastSelectedCube);
         }
     } );
 }
@@ -383,6 +455,77 @@ Game.prototype.checkPlayer = function(){
     var idx = this.isPlayer1 ? 0 : 1;
     return idx;
 }
+
+Game.prototype.removeGameBoard = function(){
+    var self = this;
+
+    for ( i = self.scene.children.length - 1; i >= 0 ; i -- ) {
+        obj = self.scene.children[ i ];
+        if ( obj !== self.camera && obj.isSVG != true 
+            && obj != self.meshes.surface && obj !== self.meshes.spotlight && obj !== self.meshes.ambient){
+            self.scene.remove(obj);
+        }
+    }
+    console.log(self.scene);
+}
+
+Game.prototype.checkWin = function(lastSelectedCube){
+    var self = this;
+    if(lastSelectedCube){
+        //check y axis
+        shootRay(self.raycaster,    new THREE.Vector3(lastSelectedCube.position.x, 0, lastSelectedCube.position.z),
+                                    new THREE.Vector3(lastSelectedCube.position.x, 2, lastSelectedCube.position.z), self.scene, "Y Ray");
+        //check x axis
+        shootRay(self.raycaster,    new THREE.Vector3(0, lastSelectedCube.position.y, lastSelectedCube.position.z),
+                                    new THREE.Vector3(2, lastSelectedCube.position.y, lastSelectedCube.position.z), self.scene, "X Ray");
+        //check z axis
+        shootRay(self.raycaster,    new THREE.Vector3(lastSelectedCube.position.x, lastSelectedCube.position.y, 0),
+                                    new THREE.Vector3(lastSelectedCube.position.x, lastSelectedCube.position.y, -2), self.scene, "Z Ray");
+        // //check outer diags
+        // shootRay(self.raycaster,    new THREE.Vector3(0, 0, lastSelectedCube.position.z),
+        //                             new THREE.Vector3(2, 2, lastSelectedCube.position.z), self.scene, "Outer Diag left to right Ray");
+                                    
+        // shootRay(self.raycaster,    new THREE.Vector3(0, 2, lastSelectedCube.position.z),
+        //                             new THREE.Vector3(2, 0, lastSelectedCube.position.z), self.scene, "Outer Diag right to left Ray");
+        // // //check inner diags
+        // // shootRay(self.raycaster, new THREE.Vector3(0, 0, 0),
+        // // new THREE.Vector3(2, 2, -2), self.scene, "Inner Diag left to right Ray");
+
+        // // shootRay(self.raycaster, new THREE.Vector3(2, 0, 0),
+        // // new THREE.Vector3(0, 2, -2), self.scene, "Inner Diag right to left Ray");
+
+        // //check depth diags
+        // shootRay(self.raycaster, new THREE.Vector3(lastSelectedCube.position.x, lastSelectedCube.position.y, 0),
+        // new THREE.Vector3(lastSelectedCube.position.x, lastSelectedCube.position.y, -2), self.scene, "Depth Diag");
+    }
+
+}
+
+Game.prototype.checkAdj = function(rec, threeDMatrix, indx){
+    var self = this;
+    if(rec < threeDMatrix.length - 2){
+        var adjArr = [];
+        var currentCube = threeDMatrix[indx];
+        for(var i = 0; i < threeDMatrix.length; i++){
+            if(checkABSVal(currentCube.x, threeDMatrix[i].x) < 2 &&
+                checkABSVal(currentCube.y, threeDMatrix[i].y) < 2 &&
+                checkABSVal(currentCube.z, threeDMatrix[i].z) < 2 &&
+                currentCube != threeDMatrix[i]){
+                    adjArr.push(threeDMatrix[i]);
+                }
+        }
+        currentCube.adj = adjArr;
+        indx++;
+        currentCube = threeDMatrix[indx];
+        self.checkAdj(indx, threeDMatrix, indx);
+    }
+    // if(lastSelectedCube.hasGameVal == '0'){
+    //     for(var i = 0; i < filledCubes.zeros.length; i++){
+
+    //     }
+    // }
+}
+
 function render() {
 
 

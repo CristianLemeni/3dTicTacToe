@@ -54,12 +54,13 @@ var init = function () {
     ];
 
     var threeDMatrix = [];
+    
     var string = ['x', 'o'];
     ticTac.initClicker();
     ticTac.addLight();
 
     
-
+   
    
     ticTac.createSurface(new THREE.PlaneBufferGeometry(30, 30), surfaceMat);
     ticTac.addbackground();
@@ -83,6 +84,7 @@ var init = function () {
                         intersects[i].object.visible == true && intersects[i].object.userData.isFilled == false){
                 var idx = ticTac.checkPlayer();
                 intersects[i].object.userData.isFilled = true;
+                intersects[i].object.userData.value = string[idx];
                 ticTac.markSpot(string[idx],intersects[i].object.position.x,
                                     intersects[i].object.position.y,
                                     intersects[i].object.position.z,
@@ -90,13 +92,13 @@ var init = function () {
                 ticTac.isPlayer1 = !ticTac.isPlayer1;
                 return;
                }
-                if(ticTac.checkWin()){
-                 ticTac.removeGameBoard();
-                 buttnMat.opacity = 1;
-                 var endButton = generateRoundedRect(buttnMat, ticTac.scene, {x: -1.5, y: -0.25, z: 0});
-                 endButton.userData.isSVG = true;
-                 ticTac.addText(textMat, 'You win', {x: -1, y: 0, z: 0}, "endText");
-                }
+                // if(ticTac.checkWin()){
+                //  ticTac.removeGameBoard();
+                //  buttnMat.opacity = 1;
+                //  var endButton = generateRoundedRect(buttnMat, ticTac.scene, {x: -1.5, y: -0.25, z: 0});
+                //  endButton.userData.isSVG = true;
+                //  ticTac.addText(textMat, 'You win', {x: -1, y: 0, z: 0}, "endText");
+                // }
                
            }            
        }
@@ -308,6 +310,20 @@ var shootRay = function(raycaster, origin, destination, scene, game, debug){
 }
 
 
+
+var checkCol = function(obj1, obj2, obj3){
+   var v1 = new THREE.Vector3(obj2.x - obj1.x, obj2.y - obj1.y, obj2.z - obj1.z);
+   var v2 = new THREE.Vector3(obj3.x - obj1.x, obj3.y - obj1.y, obj3.z - obj1.z);
+  //https://www.symbolab.com/solver/vector-cross-product-calculator   
+  var rez = new THREE.Vector3(v1.y*v2.z - v1.z*v2.y, v1.z*v2.x - v1.x*v2.z, v1.x*v2.y - v1.y*v2.x);
+   if (rez.x == 0 && rez.y == 0 && rez.z == 0){
+       return true;
+   }
+   else{
+       return false;
+   }
+}
+
 var Game = function(camera, scene, render){
     this.camera = camera;
     this.scene = scene;
@@ -420,6 +436,7 @@ Game.prototype.addCubes = function(x, y, z,cubeArr, cubeMat){
         self.scene.add(cube);
         cubeArr.push(cube);
         cube.userData.isFilled = false;
+        cube.userData.value = null;
    }
 }
 
@@ -473,18 +490,17 @@ Game.prototype.markSpot = function(string, x, y, z, lastSelectedCube){
 
         if(string == "x"){
             self.meshes.filledCubes.xs.push(lastSelectedCube);
+            lastSelectedCube.userData.value = 'x';
         }
         else{
             self.meshes.filledCubes.zeros.push(lastSelectedCube);
+            lastSelectedCube.userData.value = 'zero';
         }
-        if(self.checkWin(lastSelectedCube)){
-            if(self.isPlayer1){
-                console.log("Player 1 has won");
-            }
-            else{
-            console.log("Player 2 has won");
-            }
+        console.log(self.meshes.filledCubes);
+        if(self.meshes.filledCubes.xs.length > 2){
+            self.checkWinWithMath(lastSelectedCube);
         }
+        
     } );
 }
 
@@ -565,29 +581,17 @@ Game.prototype.checkWin = function(lastSelectedCube){
 
 }
 
-Game.prototype.checkAdj = function(rec, threeDMatrix, indx){
+Game.prototype.checkWinWithMath = function(lastSelectedCube){
     var self = this;
-    if(rec < threeDMatrix.length - 2){
-        var adjArr = [];
-        var currentCube = threeDMatrix[indx];
-        for(var i = 0; i < threeDMatrix.length; i++){
-            if(checkABSVal(currentCube.x, threeDMatrix[i].x) < 2 &&
-                checkABSVal(currentCube.y, threeDMatrix[i].y) < 2 &&
-                checkABSVal(currentCube.z, threeDMatrix[i].z) < 2 &&
-                currentCube != threeDMatrix[i]){
-                    adjArr.push(threeDMatrix[i]);
-                }
+    var count = 0;
+    if(lastSelectedCube.userData.value == 'x'){
+        for(var i = 0; i < self.meshes.filledCubes.xs.length - 2; i++){
+            if(checkCol(lastSelectedCube.position, self.meshes.filledCubes.xs[i].position, self.meshes.filledCubes.xs[i+1].position)){
+                console.log("WIN");
+            }
         }
-        currentCube.adj = adjArr;
-        indx++;
-        currentCube = threeDMatrix[indx];
-        self.checkAdj(indx, threeDMatrix, indx);
     }
-    // if(lastSelectedCube.hasGameVal == '0'){
-    //     for(var i = 0; i < filledCubes.zeros.length; i++){
 
-    //     }
-    // }
 }
 
 Game.prototype.addbackground = function(){
@@ -595,7 +599,7 @@ Game.prototype.addbackground = function(){
     self.background = {};
     var loader = new THREE.TextureLoader();
 
-    var geometryStars = new THREE.SphereGeometry( 100, 40, 80 );
+    var geometryStars = new THREE.SphereGeometry( 200, 32, 32 );
     var materialStars = new THREE.MeshPhongMaterial( {
         map: loader.load('img/2k_stars.jpg'),
         side: THREE.BackSide

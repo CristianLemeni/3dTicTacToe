@@ -28,7 +28,7 @@ var init = function () {
     var string = ['x', 'o'];
     ticTac.initClicker();
     ticTac.addLight();
-    
+    initScore(ticTac);
     
    
     ticTac.createSurface(new THREE.PlaneBufferGeometry(30, 30), ticTac.surfaceMat);
@@ -160,7 +160,14 @@ var tweenFadeOut = function(obj, game){
         removeObject(obj, game.scene, game.render)
     }
     var removeText = function(){
-        removeObject(game.meshes.startText, game.scene, game.render)
+        if(!game.finish){
+            removeObject(game.meshes.startText, game.scene, game.render)
+        } 
+        if(game.finish){
+            removeObject(game.meshes.endText, game.scene, game.render)
+            game.finish = false;
+        }
+        
     }
     createjs.Tween.get(obj.children[0].material)
                 .to({opacity:0},1000);
@@ -204,8 +211,6 @@ var addCube = function(game, arr0, arr1, arr2, bigMatrix, cubMAt){
 
     game.addCubes(0, 0, -2, arr2, cubMAt);
     game.moveCubesIntoPosition(arr2, bigMatrix);
-    game.finish = false;
-
 }
 
 var checkABSVal = function(obj1, obj2){
@@ -304,7 +309,7 @@ var endgame = function(game){
     var idx = game.checkPlayer();
     game.addText(game.textMat, 'Player ' +idx +' wins', {x: -1.3, y: 0, z: 0}, "endText");
 
-    initScore(ticTac);
+    initScore(game);
 }
 
 

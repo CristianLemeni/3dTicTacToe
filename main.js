@@ -36,35 +36,12 @@ var init = function () {
 
     //add events
     document.addEventListener('mousedown', function (evt) {
-        ticTac.mouse.x = (evt.clientX / window.innerWidth) * 2 - 1;
-        ticTac.mouse.y = -(evt.clientY / window.innerHeight) * 2 + 1;
-        // This is basically converting 2d coordinates to 3d Space:
-        ticTac.raycaster.setFromCamera(ticTac.mouse, ticTac.camera);
-        var intersects = ticTac.raycaster.intersectObjects(ticTac.scene.children, true);
+        gameLoop(ticTac, evt, string, false);       
+    }); 
 
-       if( intersects.length > 0){
-           for(var i = 0; i < intersects.length; i++){
-               if(intersects[i].object.parent.userData.isSVG){
-                tweenFadeOut(intersects[i].object.parent, ticTac);
-                addCube(ticTac, ticTac.cubes0, ticTac.cubes1, ticTac.cubes2, ticTac.threeDMatrix, ticTac.cubeMat);
-               }
-               else if(!intersects[i].object.parent.userData.isSVG &&
-                        intersects[i].object != ticTac.meshes.surface &&
-                        intersects[i].object.visible == true && intersects[i].object.userData.isFilled == false){
-                var idx = ticTac.checkPlayer();
-                intersects[i].object.userData.isFilled = true;
-                intersects[i].object.userData.value = string[idx];
-                ticTac.markSpot(string[idx],intersects[i].object.position.x,
-                                    intersects[i].object.position.y,
-                                    intersects[i].object.position.z,
-                                    intersects[i].object);
-                ticTac.isPlayer1 = !ticTac.isPlayer1;
-                return;
-               }               
-           }            
-       }
-       
-    });   
+    document.addEventListener('touchstart', function (evt) {
+        gameLoop(ticTac, evt, string, true);       
+    });  
 
         
 
@@ -229,6 +206,42 @@ var checkAxis = function(obj1, obj2){
 var initScore = function(game){
     game.addText(game.textMat, "Score X " + game.xscore, {x: 4, y: 3, z: 0}, "scoreTextX");    
     game.addText(game.textMat, "Score O " + game.oscore, {x: 4, y: 1, z: 0}, "scoreTextO"); 
+}
+
+var gameLoop = function(game, evt, string, isTouch){
+    if(!isTouch){
+        game.mouse.x = (evt.clientX / window.innerWidth) * 2 - 1;
+        game.mouse.y = -(evt.clientY / window.innerHeight) * 2 + 1;
+    }
+    if(isTouch){
+        game.mouse.x = (evt.changedTouches[0].clientX / window.innerWidth) * 2 - 1;
+        game.mouse.y = -(evt.changedTouches[0].clientY / window.innerHeight) * 2 + 1;
+    }
+    // This is basically converting 2d coordinates to 3d Space:
+    game.raycaster.setFromCamera(game.mouse, game.camera);
+    var intersects = game.raycaster.intersectObjects(game.scene.children, true);
+
+    if( intersects.length > 0){
+        for(var i = 0; i < intersects.length; i++){
+            if(intersects[i].object.parent.userData.isSVG){
+            tweenFadeOut(intersects[i].object.parent, game);
+            addCube(game, game.cubes0, game.cubes1, game.cubes2, game.threeDMatrix, game.cubeMat);
+            }
+            else if(!intersects[i].object.parent.userData.isSVG &&
+                    intersects[i].object != game.meshes.surface &&
+                    intersects[i].object.visible == true && intersects[i].object.userData.isFilled == false){
+                        var idx = game.checkPlayer();
+                        intersects[i].object.userData.isFilled = true;
+                        intersects[i].object.userData.value = string[idx];
+                        game.markSpot(string[idx],intersects[i].object.position.x,
+                                    intersects[i].object.position.y,
+                                    intersects[i].object.position.z,
+                                    intersects[i].object);
+                                    game.isPlayer1 = !game.isPlayer1;
+                        return;
+               }               
+           }            
+       }
 }
 //debug only
 var geometry = new THREE.SphereGeometry( 0.05, 32, 32 );

@@ -537,7 +537,13 @@ Game.prototype.checkPlayer = function(){
 
 Game.prototype.removeGameBoard = function(){
     var self = this;
-
+    self.cubes0 = [];
+    self.cubes1 = [];
+    self.cubes2 = [];
+    self.threeDMatrix = [];
+    self.meshes.filledCubes.xs = [];
+    self.meshes.filledCubes.zeros = [];
+    self.meshes.cubeArray = [];
     for ( i = self.scene.children.length - 1; i >= 0 ; i -- ) {
         obj = self.scene.children[ i ];
         if ( obj !== self.camera && obj.isSVG != true 
@@ -545,9 +551,7 @@ Game.prototype.removeGameBoard = function(){
             self.scene.remove(obj);
         }
     }
-    self.cubes0 = [];
-    self.cubes1 = [];
-    self.cubes2 = [];
+    console.log(self);
 }
 
 Game.prototype.checkWin = function(lastSelectedCube){
